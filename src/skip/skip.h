@@ -1,12 +1,12 @@
 #ifndef skip_h
 #define skip_h
 
-#include <stddef.h>
+#include <stdint.h>
 
 /* alphabet size 0x0-0xff */
 #define ASIZE 0x100
 
-typedef uint64_t offset_t;
+typedef unsigned long long offset_t;
 typedef struct {
     int val;
     int nxt;

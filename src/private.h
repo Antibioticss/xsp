@@ -1,6 +1,8 @@
 #ifndef PRIVATE_H
 #define PRIVATE_H
 
+#include <stdint.h>
+
 #define CHUNK_SIZE     (64 * 1024)
 
 struct data {
