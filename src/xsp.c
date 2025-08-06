@@ -142,7 +142,7 @@ int main(const int argc, char **argv) {
 
     if (count == 0) {
         error = 1;
-        printf("no matches found!");
+        printf("no matches found!\n");
         goto exit;
     }
 
