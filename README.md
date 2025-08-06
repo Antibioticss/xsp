@@ -2,12 +2,15 @@
 
 A simple & fast hex searching and patching tool
 
+Based on skip search, a super fast algorithm for random binaries
+
 ## build
 
 ```shell
 git clone https://github.com/Antibioticss/xsp.git --recursive
 cd xsp
-cmake . && cmake --build .
+mkdir build && cd build
+cmake .. && cmake --build .
 ```
 
 ## usage
@@ -22,9 +25,9 @@ options:
   -h, --help                print this usage
 ```
 
-When `hex2` is not provided, the program will search `hex1` in the binary and print offsets.
+When `hex2` is not provided, `xsp` will search `hex1` in the binary and print offsets.
 
-Otherwise, it will replace the occurrences of `hex1` with `hex2`.
+Otherwise, `xsp` will replace the occurrences of `hex1` with `hex2`.
 
 ### Notes
 
@@ -44,3 +47,7 @@ elements: 12 34 ab cd
 indexes:   0  1  2  3
 indexes:  -4 -3 -2 -1
 ```
+
+range string is two indexes separated by `,`
+
+`xsp` will replace the occurrences start from the first index to the second index (include the beginning and ending)
