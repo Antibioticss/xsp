@@ -2,7 +2,7 @@
 
 A simple & fast hex searching and patching tool
 
-Based on skip search, a super fast algorithm for random binaries
+Based on anchored_memchr, a stride-anchored substring search by [EshayDev](https://github.com/EshayDev) that advances by the pattern length and, at each anchor, uses a per-byte inverted index of the pattern to generate candidate alignments, verifying each with memcmp. 
 
 ## build
 
@@ -21,7 +21,9 @@ usage: xsp [options] hex1 [hex2]
 options:
   -f, --file <file>         path to the file to patch
   -r, --range <range>       range of the matches, eg: '0,-1'
+  -t <threads>              number of threads to use (default: auto)
   --str                     treat args as string instead of hex string
+  --benchmark               run search performance benchmarks
   -h, --help                print this usage
 ```
 

@@ -1,11 +1,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "skip.h"
+#include "anchored_memchr.h"
 
 #define STEP_SIZE       256
 
-void skip_init(skipidx_t *idx, size_t patlen, const unsigned char *pattern) {
+void anchored_memchr_init(anchored_memchr_idx_t *idx, size_t patlen, const unsigned char *pattern) {
     int bufidx = 1;
     unsigned char *patt = (unsigned char *)malloc((patlen + 1) * sizeof(unsigned char));
     int *bucket = (int *)malloc(ASIZE * sizeof(int));
@@ -25,7 +25,7 @@ void skip_init(skipidx_t *idx, size_t patlen, const unsigned char *pattern) {
     return;
 }
 
-offset_t *skip_match(skipidx_t *idx, unsigned char *start, unsigned char *end, int *count) {
+offset_t *anchored_memchr_match(anchored_memchr_idx_t *idx, unsigned char *start, unsigned char *end, int *count) {
     size_t patlen = idx->plen;
     unsigned char *pattern = idx->patt;
     int *bucket = idx->buck;
@@ -64,7 +64,7 @@ offset_t *skip_match(skipidx_t *idx, unsigned char *start, unsigned char *end, i
     return offs;
 }
 
-void skip_release(skipidx_t *idx) {
+void anchored_memchr_release(anchored_memchr_idx_t *idx) {
     free(idx->patt);
     free(idx->buck);
     free(idx->buff);
