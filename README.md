@@ -2,11 +2,7 @@
 
 A simple & fast hex searching and patching tool
 
-<<<<<<< HEAD
 Based on anchored_memchr, a stride-anchored substring search by [EshayDev](https://github.com/EshayDev) that advances by the pattern length and, at each anchor, uses a per-byte inverted index of the pattern to generate candidate alignments, verifying each with memcmp. 
-=======
-Based on anchored_memchr search, a super fast algorithm for random binaries
->>>>>>> 13fb017 (Update CMake configuration, replace skip search with anchored_memchr, add multi-threading support for hex search, and add benchmarking feature.)
 
 ## build
 
