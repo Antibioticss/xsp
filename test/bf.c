@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #include "private.h"
-#include "skip/skip.h"
+#include "anchored_memchr/anchored_memchr.h"
 
 enum MODE {
     SEARCH_MODE,

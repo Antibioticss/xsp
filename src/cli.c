@@ -6,9 +6,11 @@
 #include "private.h"
 
 bool print_help = false;
+bool benchmark_mode = false;
 struct data hex1, hex2;
 char *file_path = NULL;
 struct range pat_range = {0, -1};
+int num_threads = 0;
 
 void usage() {
     puts("xsp - hex search & patch tool");
@@ -16,7 +18,9 @@ void usage() {
     puts("options:");
     puts("  -f <file>          path to the file to patch");
     puts("  -r <range>         range of the matches, eg: '0,-1'");
+    puts("  -t <threads>       number of threads to use (default: auto)");
     puts("  --str              treat args as string instead of hex string");
+    puts("  --benchmark        run search performance benchmarks");
     puts("  -h, --help         print this usage");
     return;
 }
@@ -78,6 +82,10 @@ int parse_arg(int argc, char **argv) {
                     print_help = true;
                     goto exit;
                 }
+                if (strcmp("benchmark", cur + 2) == 0) {
+                    benchmark_mode = true;
+                    continue;
+                }
                 fprintf(stderr, "xsp: unkown long argument '%s'\n", cur);
                 error = 1;
                 goto exit;
@@ -95,6 +103,20 @@ int parse_arg(int argc, char **argv) {
                 range_str = argv[++i];
                 continue;
             }
+            if (cur[1] == 't') {
+                if (i + 1 >= argc) {
+                    fprintf(stderr, "xsp: -t requires a value\n");
+                    error = 1;
+                    goto exit;
+                }
+                num_threads = atoi(argv[++i]);
+                if (num_threads < 0) {
+                    fprintf(stderr, "xsp: invalid threads '%d'\n", num_threads);
+                    error = 1;
+                    goto exit;
+                }
+                continue;
+            }
             if (cur[1] == 'h') {
                 print_help = true;
                 goto exit;
@@ -104,6 +126,16 @@ int parse_arg(int argc, char **argv) {
             goto exit;
         }
         args[argsc++] = cur;
+    }
+
+    // benchmark mode doesn't require pattern arguments
+    if (benchmark_mode) {
+        if (argsc > 0) {
+            fprintf(stderr, "xsp: benchmark mode doesn't accept pattern arguments\n");
+            error = 1;
+            goto exit;
+        }
+        goto exit; // skip pattern validation for benchmark mode
     }
 
     if (argsc < 1 || argsc > 2) {
