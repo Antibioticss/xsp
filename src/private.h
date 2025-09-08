@@ -11,6 +11,8 @@
 struct data {
     size_t len;
     uint8_t *buf;
+    /* when non-NULL, wildcard[i] == 1 means that byte is a wildcard (matches any) */
+    uint8_t *wildcard;
 };
 
 /* starts with 0, support negative index, ends with -1 */
