@@ -30,6 +30,15 @@ offset_t *anchored_memchr_match(anchored_memchr_idx_t *idx, unsigned char *start
 
 void anchored_memchr_release(anchored_memchr_idx_t *idx);
 
+int anchored_memchr_has_wildcards(const unsigned char *wildcard_mask, size_t patlen);
+
+offset_t *anchored_memchr_match_wildcard(unsigned char *start,
+                                         unsigned char *end,
+                                         const unsigned char *pattern,
+                                         const unsigned char *wildcard_mask,
+                                         size_t patlen,
+                                         int *count);
+
 #endif
 
 

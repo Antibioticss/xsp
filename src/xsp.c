@@ -68,14 +68,25 @@ static void *search_worker(void *arg) {
     size_t available = task->file_size - task->base_offset;
     size_t effective_len = max_span < available ? max_span : available;
 
-    anchored_memchr_idx_t skipidx;
-    anchored_memchr_init(&skipidx, task->pattern.len, task->pattern.buf);
-
     int local_count = 0;
-    offset_t *local = anchored_memchr_match(&skipidx,
+    offset_t *local = NULL;
+    if (!anchored_memchr_has_wildcards(task->pattern.wildcard, task->pattern.len)) {
+        anchored_memchr_idx_t skipidx;
+        anchored_memchr_init(&skipidx, task->pattern.len, task->pattern.buf);
+        local = anchored_memchr_match(&skipidx,
                                  task->base_ptr,
                                  task->base_ptr + effective_len,
                                  &local_count);
+        anchored_memchr_release(&skipidx);
+    } else {
+        local = anchored_memchr_match_wildcard(
+            task->base_ptr,
+            task->base_ptr + effective_len,
+            task->pattern.buf,
+            task->pattern.wildcard,
+            task->pattern.len,
+            &local_count);
+    }
 
     // filter to avoid duplicates across segment boundaries and convert to absolute
     size_t cutoff = task->base_offset + task->chunk_size;
@@ -89,7 +100,6 @@ static void *search_worker(void *arg) {
     }
     task->results = local;
     task->result_count = kept;
-    anchored_memchr_release(&skipidx);
     return NULL;
 }
 
@@ -125,19 +135,29 @@ offset_t *hex_search(FILE *fp, struct data hex, size_t *count) {
         // fallback: single-threaded buffered scan
         size_t matched = 0;
         size_t chunk_size = max(CHUNK_SIZE, hex.len * 2);
-        anchored_memchr_idx_t skipidx;
-        anchored_memchr_init(&skipidx, hex.len, hex.buf);
-
         int cur_matched;
         offset_t *offsets = NULL;
         uint8_t *buffer = malloc(chunk_size + hex.len - 1);
 
         rewind(fp);
         size_t readc = fread(buffer + hex.len - 1, 1, chunk_size, fp);
-        offsets = anchored_memchr_match(&skipidx,
-            buffer + hex.len - 1,
-            buffer + hex.len - 1 + readc,
-            &cur_matched);
+        if (!anchored_memchr_has_wildcards(hex.wildcard, hex.len)) {
+            anchored_memchr_idx_t skipidx;
+            anchored_memchr_init(&skipidx, hex.len, hex.buf);
+            offsets = anchored_memchr_match(&skipidx,
+                buffer + hex.len - 1,
+                buffer + hex.len - 1 + readc,
+                &cur_matched);
+            anchored_memchr_release(&skipidx);
+        } else {
+            offsets = anchored_memchr_match_wildcard(
+                buffer + hex.len - 1,
+                buffer + hex.len - 1 + readc,
+                hex.buf,
+                hex.wildcard,
+                hex.len,
+                &cur_matched);
+        }
         matched += cur_matched;
         int offsize = (cur_matched & 0xffffff00) + STEP_SIZE;
         offsets = realloc(offsets, offsize * sizeof(offset_t));
@@ -145,10 +165,24 @@ offset_t *hex_search(FILE *fp, struct data hex, size_t *count) {
         while (readc == chunk_size) {
             memmove(buffer, buffer + chunk_size, hex.len - 1);
             readc = fread(buffer + hex.len - 1, 1, chunk_size, fp);
-            offset_t *cur_offs = anchored_memchr_match(&skipidx,
-                buffer,
-                buffer + readc + hex.len - 1,
-                &cur_matched);
+            offset_t *cur_offs;
+            if (!anchored_memchr_has_wildcards(hex.wildcard, hex.len)) {
+                anchored_memchr_idx_t skipidx2;
+                anchored_memchr_init(&skipidx2, hex.len, hex.buf);
+                cur_offs = anchored_memchr_match(&skipidx2,
+                    buffer,
+                    buffer + readc + hex.len - 1,
+                    &cur_matched);
+                anchored_memchr_release(&skipidx2);
+            } else {
+                cur_offs = anchored_memchr_match_wildcard(
+                    buffer,
+                    buffer + readc + hex.len - 1,
+                    hex.buf,
+                    hex.wildcard,
+                    hex.len,
+                    &cur_matched);
+            }
             if (matched + cur_matched > (size_t)offsize) {
                 offsize = max(matched + cur_matched, (size_t)offsize + STEP_SIZE);
                 offsets = realloc(offsets, offsize * sizeof(offset_t));
@@ -161,7 +195,6 @@ offset_t *hex_search(FILE *fp, struct data hex, size_t *count) {
         }
         *count = matched;
         free(buffer);
-        anchored_memchr_release(&skipidx);
         return offsets;
     }
 
@@ -223,14 +256,38 @@ offset_t *hex_search(FILE *fp, struct data hex, size_t *count) {
 int hex_patch(FILE *fp, struct data hex, offset_t *offsets, struct range rg) {
     int patched = 0;
     for (int i = rg.left; i <= rg.right; i++) {
+        // build write buffer honoring replacement wildcards (preserve original byte)
+        uint8_t *writebuf = (uint8_t *)malloc(hex.len);
+        if (!writebuf) goto exit;
+        for (size_t j = 0; j < hex.len; j++) {
+            if (hex.wildcard && hex.wildcard[j]) {
+                if (fseek(fp, offsets[i] + (long)j, SEEK_SET) != 0) {
+                    perror("fseek");
+                    free(writebuf);
+                    goto exit;
+                }
+                int c = fgetc(fp);
+                if (c == EOF && ferror(fp)) {
+                    perror("fread");
+                    free(writebuf);
+                    goto exit;
+                }
+                writebuf[j] = (uint8_t)c;
+            } else {
+                writebuf[j] = hex.buf[j];
+            }
+        }
         if (fseek(fp, offsets[i], SEEK_SET) != 0) {
             perror("fseek");
+            free(writebuf);
             goto exit;
         }
-        if (fwrite(hex.buf, hex.len, 1, fp) != 1) {
+        if (fwrite(writebuf, hex.len, 1, fp) != 1) {
             perror("fwrite");
+            free(writebuf);
             goto exit;
         }
+        free(writebuf);
         patched++;
     }
 exit:
@@ -514,8 +571,10 @@ int main(const int argc, char **argv) {
 exit:
     free(offs);
     free(hex1.buf);
+    free(hex1.wildcard);
     if (mode == PATCH_MODE) {
         free(hex2.buf);
+        free(hex2.wildcard);
     }
     fclose(fp);
     return error;
