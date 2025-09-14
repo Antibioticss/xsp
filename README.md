@@ -20,6 +20,7 @@ xsp - hex search & patch tool
 usage: xsp [options] hex1 [hex2]
 options:
   -f, --file <file>         path to the file to patch
+  -o, --offset <offset>     base offset to start search from (hex or decimal)
   -r, --range <range>       range of the matches, eg: '0,-1'
   -t <threads>              number of threads to use (default: auto)
   --str                     treat args as string instead of hex string
@@ -53,3 +54,15 @@ indexes:  -4 -3 -2 -1
 range string is two indexes separated by `,`
 
 `xsp` will replace the occurrences start from the first index to the second index (include the beginning and ending)
+
+## Integration with symp
+
+`xsp` can be used in conjunction with `symp` for symbol-based patching:
+
+```bash
+# Find symbol offset with symp and use it as base offset for xsp
+xsp --offset $(symp -q 'symbol_name' binary_file) -f binary_file hex1 hex2
+
+# Example: Patch code at a specific symbol location
+xsp --offset $(symp -q '_main' /usr/bin/example) -f /usr/bin/example "90 90 90 90" "CC CC CC CC"
+```

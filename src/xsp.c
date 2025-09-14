@@ -124,13 +124,20 @@ offset_t *hex_search(FILE *fp, struct data hex, size_t *count) {
     if (file_size_long <= 0) {
         return (offset_t *)malloc(0);
     }
-    size_t file_size = (size_t)file_size_long;
+    size_t total_file_size = (size_t)file_size_long;
+    
+    // apply base offset
+    if (base_offset >= file_size_long) {
+        return (offset_t *)malloc(0);
+    }
+    size_t search_start = (size_t)base_offset;
+    size_t file_size = total_file_size - search_start;
     if (file_size < hex.len) {
         return (offset_t *)malloc(0);
     }
 
     int fd = fileno(fp);
-    unsigned char *map = mmap(NULL, file_size, PROT_READ, MAP_SHARED, fd, 0);
+    unsigned char *map = mmap(NULL, total_file_size, PROT_READ, MAP_SHARED, fd, 0);
     if (map == MAP_FAILED) {
         // fallback: single-threaded buffered scan
         size_t matched = 0;
@@ -139,7 +146,7 @@ offset_t *hex_search(FILE *fp, struct data hex, size_t *count) {
         offset_t *offsets = NULL;
         uint8_t *buffer = malloc(chunk_size + hex.len - 1);
 
-        rewind(fp);
+        fseek(fp, search_start, SEEK_SET);
         size_t readc = fread(buffer + hex.len - 1, 1, chunk_size, fp);
         if (!anchored_memchr_has_wildcards(hex.wildcard, hex.len)) {
             anchored_memchr_idx_t skipidx;
@@ -158,10 +165,14 @@ offset_t *hex_search(FILE *fp, struct data hex, size_t *count) {
                 hex.len,
                 &cur_matched);
         }
+        // adjust offsets to be absolute file positions
+        for (int i = 0; i < cur_matched; i++) {
+            offsets[i] += search_start;
+        }
         matched += cur_matched;
         int offsize = (cur_matched & 0xffffff00) + STEP_SIZE;
         offsets = realloc(offsets, offsize * sizeof(offset_t));
-        size_t filepos = chunk_size - (hex.len - 1);
+        size_t filepos = search_start + chunk_size - (hex.len - 1);
         while (readc == chunk_size) {
             memmove(buffer, buffer + chunk_size, hex.len - 1);
             readc = fread(buffer + hex.len - 1, 1, chunk_size, fp);
@@ -210,14 +221,14 @@ offset_t *hex_search(FILE *fp, struct data hex, size_t *count) {
     search_task_t *tasks = (search_task_t *)malloc((size_t)threads * sizeof(search_task_t));
 
     for (int i = 0; i < threads; i++) {
-        size_t base_offset = (size_t)i * base_chunk;
-        size_t remaining = file_size - base_offset;
+        size_t thread_offset = (size_t)i * base_chunk;
+        size_t remaining = file_size - thread_offset;
         size_t chunk_len = (i == threads - 1) ? remaining : base_chunk;
         tasks[i] = (search_task_t){
-            .base_ptr = map + base_offset,
-            .base_offset = base_offset,
+            .base_ptr = map + search_start + thread_offset,
+            .base_offset = search_start + thread_offset,
             .chunk_size = chunk_len,
-            .file_size = file_size,
+            .file_size = total_file_size,
             .pattern = hex,
             .is_last = (i == threads - 1),
             .results = NULL,
@@ -247,7 +258,7 @@ offset_t *hex_search(FILE *fp, struct data hex, size_t *count) {
 
     free(tids);
     free(tasks);
-    munmap(map, file_size);
+    munmap(map, total_file_size);
 
     *count = matched_total;
     return all_offs;

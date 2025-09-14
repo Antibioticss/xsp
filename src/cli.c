@@ -11,12 +11,14 @@ struct data hex1, hex2;
 char *file_path = NULL;
 struct range pat_range = {0, -1};
 int num_threads = 0;
+long base_offset = 0;
 
 void usage() {
     puts("xsp - hex search & patch tool");
     puts("usage: xsp [options] hex1 [hex2]");
     puts("options:");
     puts("  -f <file>          path to the file to patch");
+    puts("  -o, --offset <off> base offset to start search from (hex or decimal)");
     puts("  -r <range>         range of the matches, eg: '0,-1'");
     puts("  -t <threads>       number of threads to use (default: auto)");
     puts("  --str              treat args as string instead of hex string");
@@ -134,6 +136,27 @@ int parse_arg(int argc, char **argv) {
                     benchmark_mode = true;
                     continue;
                 }
+                if (strcmp("offset", cur + 2) == 0) {
+                    if (i + 1 >= argc) {
+                        fprintf(stderr, "xsp: --offset requires a value\n");
+                        error = 1;
+                        goto exit;
+                    }
+                    char *offset_str = argv[++i];
+                    char *endptr;
+                    // Support both hex (0x...) and decimal
+                    if (strncmp(offset_str, "0x", 2) == 0 || strncmp(offset_str, "0X", 2) == 0) {
+                        base_offset = strtol(offset_str, &endptr, 16);
+                    } else {
+                        base_offset = strtol(offset_str, &endptr, 10);
+                    }
+                    if (*endptr != '\0' || base_offset < 0) {
+                        fprintf(stderr, "xsp: invalid offset '%s'\n", offset_str);
+                        error = 1;
+                        goto exit;
+                    }
+                    continue;
+                }
                 fprintf(stderr, "xsp: unkown long argument '%s'\n", cur);
                 error = 1;
                 goto exit;
@@ -145,6 +168,27 @@ int parse_arg(int argc, char **argv) {
             }
             if (cur[1] == 'f') {
                 file_path = argv[++i];
+                continue;
+            }
+            if (cur[1] == 'o') {
+                if (i + 1 >= argc) {
+                    fprintf(stderr, "xsp: -o requires a value\n");
+                    error = 1;
+                    goto exit;
+                }
+                char *offset_str = argv[++i];
+                char *endptr;
+                // Support both hex (0x...) and decimal
+                if (strncmp(offset_str, "0x", 2) == 0 || strncmp(offset_str, "0X", 2) == 0) {
+                    base_offset = strtol(offset_str, &endptr, 16);
+                } else {
+                    base_offset = strtol(offset_str, &endptr, 10);
+                }
+                if (*endptr != '\0' || base_offset < 0) {
+                    fprintf(stderr, "xsp: invalid offset '%s'\n", offset_str);
+                    error = 1;
+                    goto exit;
+                }
                 continue;
             }
             if (cur[1] == 'r') {

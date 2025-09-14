@@ -26,6 +26,7 @@ extern struct data hex1, hex2;
 extern char *file_path;
 extern struct range pat_range;
 extern int num_threads;
+extern long base_offset;
 
 void usage();
 int parse_arg(int argc, char **argv);
