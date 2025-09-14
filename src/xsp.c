@@ -126,12 +126,20 @@ offset_t *hex_search(FILE *fp, struct data hex, size_t *count) {
     }
     size_t total_file_size = (size_t)file_size_long;
     
-    // apply base offset
-    if (base_offset >= file_size_long) {
+    // apply base offset and skip bytes
+    long effective_offset = base_offset + skip_bytes;
+    if (effective_offset >= file_size_long) {
         return (offset_t *)malloc(0);
     }
-    size_t search_start = (size_t)base_offset;
-    size_t file_size = total_file_size - search_start;
+    size_t search_start = (size_t)effective_offset;
+    size_t available_size = total_file_size - search_start;
+    
+    // apply search size limit if specified
+    size_t file_size = available_size;
+    if (max_search_size > 0 && (size_t)max_search_size < available_size) {
+        file_size = (size_t)max_search_size;
+    }
+    
     if (file_size < hex.len) {
         return (offset_t *)malloc(0);
     }

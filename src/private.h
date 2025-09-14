@@ -27,6 +27,8 @@ extern char *file_path;
 extern struct range pat_range;
 extern int num_threads;
 extern long base_offset;
+extern long skip_bytes;
+extern long max_search_size;
 
 void usage();
 int parse_arg(int argc, char **argv);

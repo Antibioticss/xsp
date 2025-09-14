@@ -12,6 +12,8 @@ char *file_path = NULL;
 struct range pat_range = {0, -1};
 int num_threads = 0;
 long base_offset = 0;
+long skip_bytes = 0;
+long max_search_size = 0;
 
 void usage() {
     puts("xsp - hex search & patch tool");
@@ -19,6 +21,8 @@ void usage() {
     puts("options:");
     puts("  -f <file>          path to the file to patch");
     puts("  -o, --offset <off> base offset to start search from (hex or decimal)");
+    puts("  -s, --skip <bytes> skip bytes from base offset before search/patch");
+    puts("  -l, --limit <size> limit search to this many bytes from start position");
     puts("  -r <range>         range of the matches, eg: '0,-1'");
     puts("  -t <threads>       number of threads to use (default: auto)");
     puts("  --str              treat args as string instead of hex string");
@@ -157,6 +161,48 @@ int parse_arg(int argc, char **argv) {
                     }
                     continue;
                 }
+                if (strcmp("skip", cur + 2) == 0) {
+                    if (i + 1 >= argc) {
+                        fprintf(stderr, "xsp: --skip requires a value\n");
+                        error = 1;
+                        goto exit;
+                    }
+                    char *skip_str = argv[++i];
+                    char *endptr;
+                    // Support both hex (0x...) and decimal
+                    if (strncmp(skip_str, "0x", 2) == 0 || strncmp(skip_str, "0X", 2) == 0) {
+                        skip_bytes = strtol(skip_str, &endptr, 16);
+                    } else {
+                        skip_bytes = strtol(skip_str, &endptr, 10);
+                    }
+                    if (*endptr != '\0' || skip_bytes < 0) {
+                        fprintf(stderr, "xsp: invalid skip value '%s'\n", skip_str);
+                        error = 1;
+                        goto exit;
+                    }
+                    continue;
+                }
+                if (strcmp("limit", cur + 2) == 0) {
+                    if (i + 1 >= argc) {
+                        fprintf(stderr, "xsp: --limit requires a value\n");
+                        error = 1;
+                        goto exit;
+                    }
+                    char *limit_str = argv[++i];
+                    char *endptr;
+                    // Support both hex (0x...) and decimal
+                    if (strncmp(limit_str, "0x", 2) == 0 || strncmp(limit_str, "0X", 2) == 0) {
+                        max_search_size = strtol(limit_str, &endptr, 16);
+                    } else {
+                        max_search_size = strtol(limit_str, &endptr, 10);
+                    }
+                    if (*endptr != '\0' || max_search_size <= 0) {
+                        fprintf(stderr, "xsp: invalid limit value '%s'\n", limit_str);
+                        error = 1;
+                        goto exit;
+                    }
+                    continue;
+                }
                 fprintf(stderr, "xsp: unkown long argument '%s'\n", cur);
                 error = 1;
                 goto exit;
@@ -186,6 +232,48 @@ int parse_arg(int argc, char **argv) {
                 }
                 if (*endptr != '\0' || base_offset < 0) {
                     fprintf(stderr, "xsp: invalid offset '%s'\n", offset_str);
+                    error = 1;
+                    goto exit;
+                }
+                continue;
+            }
+            if (cur[1] == 's') {
+                if (i + 1 >= argc) {
+                    fprintf(stderr, "xsp: -s requires a value\n");
+                    error = 1;
+                    goto exit;
+                }
+                char *skip_str = argv[++i];
+                char *endptr;
+                // Support both hex (0x...) and decimal
+                if (strncmp(skip_str, "0x", 2) == 0 || strncmp(skip_str, "0X", 2) == 0) {
+                    skip_bytes = strtol(skip_str, &endptr, 16);
+                } else {
+                    skip_bytes = strtol(skip_str, &endptr, 10);
+                }
+                if (*endptr != '\0' || skip_bytes < 0) {
+                    fprintf(stderr, "xsp: invalid skip value '%s'\n", skip_str);
+                    error = 1;
+                    goto exit;
+                }
+                continue;
+            }
+            if (cur[1] == 'l') {
+                if (i + 1 >= argc) {
+                    fprintf(stderr, "xsp: -l requires a value\n");
+                    error = 1;
+                    goto exit;
+                }
+                char *limit_str = argv[++i];
+                char *endptr;
+                // Support both hex (0x...) and decimal
+                if (strncmp(limit_str, "0x", 2) == 0 || strncmp(limit_str, "0X", 2) == 0) {
+                    max_search_size = strtol(limit_str, &endptr, 16);
+                } else {
+                    max_search_size = strtol(limit_str, &endptr, 10);
+                }
+                if (*endptr != '\0' || max_search_size <= 0) {
+                    fprintf(stderr, "xsp: invalid limit value '%s'\n", limit_str);
                     error = 1;
                     goto exit;
                 }
