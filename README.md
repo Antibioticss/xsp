@@ -21,6 +21,8 @@ usage: xsp [options] hex1 [hex2]
 options:
   -f, --file <file>         path to the file to patch
   -o, --offset <offset>     base offset to start search from (hex or decimal)
+  -s, --skip <bytes>        skip bytes from base offset before search/patch
+  -l, --limit <size>        limit search to this many bytes from start position
   -r, --range <range>       range of the matches, eg: '0,-1'
   -t <threads>              number of threads to use (default: auto)
   --str                     treat args as string instead of hex string
