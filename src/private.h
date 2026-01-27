@@ -11,6 +11,8 @@
 struct data {
     size_t len;
     uint8_t *buf;
+    /* when non-NULL, wildcard[i] == 1 means that byte is a wildcard (matches any) */
+    uint8_t *wildcard;
 };
 
 /* starts with 0, support negative index, ends with -1 */
@@ -24,6 +26,9 @@ extern struct data hex1, hex2;
 extern char *file_path;
 extern struct range pat_range;
 extern int num_threads;
+extern long base_offset;
+extern long skip_bytes;
+extern long max_search_size;
 
 void usage();
 int parse_arg(int argc, char **argv);
